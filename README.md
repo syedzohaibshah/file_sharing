@@ -1,8 +1,8 @@
-# 📂 Supabase File & Text Sharer
+#  Supabase File & Text Sharer
 
 A lightweight, real-time web app that lets you share **files** and **text** across devices using a simple shared **room code** — no login required.
 
-## 🚀 Features
+##  Features
 
 -  No authentication needed
 -  Real-time shared text (via Supabase Database)
@@ -12,9 +12,8 @@ A lightweight, real-time web app that lets you share **files** and **text** acro
 
 ---
 
----
 
-## 🛠 Setup Instructions
+##  Setup Instructions
 
 ### 1. Create a Supabase project
 - Go to [https://supabase.com](https://supabase.com)
@@ -22,7 +21,7 @@ A lightweight, real-time web app that lets you share **files** and **text** acro
 - Copy your `supabaseUrl` and `anon` key from `Project Settings → API`
 
 ### 2. Create resources
-#### 🔹 Storage Bucket
+####  Storage Bucket
 - Name: `files`
 - Make public
 - Add `INSERT` and `SELECT` policies with:
