@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Supabase File & Text Sharer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" href="data:,">
+</head>
+<body class="bg-gray-100 p-6 font-sans">
+  <div class="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6">
+    <h1 class="text-2xl font-bold text-green-600 text-center mb-4">Supabase File & Text Sharer</h1>
+
+    <!-- Room Code Input -->
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-gray-700">Room Code:</label>
+      <input id="roomCode" type="text" placeholder="e.g. teamfox2025"
+        class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 sm:text-sm">
+    </div>
+
+    <!-- File Upload -->
+    <div class="mb-6">
+      <label class="block text-sm font-medium text-gray-700 mb-1">Upload File (Max ~50MB):</label>
+      <input type="file" id="fileInput" class="mb-2">
+      <button id="uploadFileBtn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">Upload File</button>
+    </div>
+
+    <!-- Shared Text Editor -->
+    <div class="mb-6">
+      <label class="block text-sm font-medium text-gray-700 mb-1">Shared Text:</label>
+      <textarea id="sharedText" rows="6"
+        class="w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500 text-sm"></textarea>
+      <button id="saveTextBtn" class="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">Save Text</button>
+    </div>
+
+    <!-- Files List -->
+    <div>
+      <h2 class="text-lg font-semibold mb-2">Files in this Room:</h2>
+      <ul id="fileList" class="space-y-2"></ul>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+   const supabaseUrl = 'your_url';
+const supabaseKey = "your_key";
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const roomCodeInput = document.getElementById('roomCode');
+    const fileInput = document.getElementById('fileInput');
+    const uploadFileBtn = document.getElementById('uploadFileBtn');
+    const fileList = document.getElementById('fileList');
+    const sharedText = document.getElementById('sharedText');
+    const saveTextBtn = document.getElementById('saveTextBtn');
+
+    let currentRoom = "";
+
+    function updateRoom() {
+      const room = roomCodeInput.value.trim();
+      if (!room) return;
+      currentRoom = room;
+      loadText();
+      loadFiles();
+    }
+
+    roomCodeInput.addEventListener('change', updateRoom);
+
+    uploadFileBtn.addEventListener('click', async () => {
+      if (!currentRoom) return alert("Enter a room code first.");
+      const file = fileInput.files[0];
+      if (!file) return alert("No file selected.");
+
+      const { data, error } = await supabase.storage.from('files').upload(`rooms/${currentRoom}/${file.name}`, file, {
+        upsert: true
+      });
+
+      if (error) {
+        alert("Upload failed: " + error.message);
+      } else {
+        alert("File uploaded!");
+        loadFiles();
+      }
+    });
+
+    async function loadFiles() {
+      const { data, error } = await supabase.storage.from('files').list(`rooms/${currentRoom}`);
+      fileList.innerHTML = "";
+      if (data && data.length > 0) {
+        for (const item of data) {
+          const { data: urlData } = await supabase.storage.from('files').getPublicUrl(`rooms/${currentRoom}/${item.name}`);
+          const li = document.createElement('li');
+          li.innerHTML = `<a href="${urlData.publicUrl}" class="text-green-600 underline" download>${item.name}</a>`;
+          fileList.appendChild(li);
+        }
+      } else {
+        fileList.innerHTML = '<li class="text-gray-400">No files yet.</li>';
+      }
+    }
+
+    saveTextBtn.addEventListener('click', async () => {
+      if (!currentRoom) return alert("Enter a room code first.");
+      const text = sharedText.value;
+      await supabase.from('shared_text').upsert({ room: currentRoom, text });
+      alert("Text saved");
+    });
+
+    function loadText() {
+      supabase.from('shared_text').select('text').eq('room', currentRoom)
+        .single()
+        .then(({ data, error }) => {
+          if (data) sharedText.value = data.text || "";
+        });
+
+      supabase.channel(currentRoom + '_text')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_text', filter: `room=eq.${currentRoom}` }, payload => {
+          sharedText.value = payload.new?.text || "";
+        })
+        .subscribe();
+    }
+  </script>
+</body>
+</html>
